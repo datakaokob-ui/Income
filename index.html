@@ -1,435 +1,51 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ระบบบัญชีรายรับ-รายจ่าย (Multi-User Auth)</title>
-  
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  
-  <style>
-    body { font-family: 'Kanit', sans-serif; }
-  </style>
-</head>
-<body class="bg-slate-100 min-h-screen py-8 px-4">
+<!-- HEADER -->
+<header class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
 
-  <!-- ==================== SECTION 1: AUTH SCREEN (หน้าเข้าสู่ระบบ / สมัครสมาชิก) ==================== -->
-  <div id="authContainer" class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-md border border-slate-200 space-y-6">
-    <div class="text-center">
-      <h2 class="text-2xl font-bold text-slate-800">🔐 เข้าสู่ระบบ</h2>
-      <p class="text-slate-500 text-sm mt-1">ระบบบัญชีรายรับ-รายจ่ายในครัวเรือน</p>
+  <div class="relative flex items-center justify-between gap-4">
+
+    <!-- ซ้าย -->
+    <div class="flex-1">
+      <h1 class="text-2xl font-bold text-slate-800">
+        🏡 บัญชีรายรับ-รายจ่าย
+      </h1>
+
+      <p class="text-slate-500 text-sm mt-1">
+        ผู้ใช้งาน:
+        <span id="userEmailTag"
+              class="font-semibold text-blue-600"></span>
+      </p>
     </div>
 
-    <form id="authForm" class="space-y-4">
-      <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">อีเมล</label>
-        <input type="email" id="authEmail" required placeholder="example@email.com" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">รหัสผ่าน</label>
-        <input type="password" id="authPassword" required placeholder="••••••••" minlength="6" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
-      </div>
+    <!-- นาฬิกา ตรงกลาง -->
+    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+      <div class="analog-clock" id="analogClock">
 
-      <div class="flex gap-2 pt-2">
-        <button type="button" onclick="handleLogin()" id="btnLogin" class="w-1/2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm transition">
-          เข้าสู่ระบบ
-        </button>
-        <button type="button" onclick="handleSignUp()" id="btnSignUp" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2 rounded-lg text-sm transition">
-          สมัครสมาชิก
-        </button>
-      </div>
-    </form>
-    <p id="authMessage" class="text-center text-xs font-medium"></p>
-  </div>
+        <span class="clock-number n12">12</span>
+        <span class="clock-number n3">3</span>
+        <span class="clock-number n6">6</span>
+        <span class="clock-number n9">9</span>
 
-  <!-- ==================== SECTION 2: MAIN APP (หน้าจัดการระบบบัญชี) ==================== -->
-  <div id="appContainer" class="hidden max-w-4xl mx-auto space-y-6">
-    
-    <!-- HEADER -->
-    <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-bold text-slate-800">🏡 บัญชีรายรับ-รายจ่าย</h1>
-        <p class="text-slate-500 text-sm mt-1">ผู้ใช้งาน: <span id="userEmailTag" class="font-semibold text-blue-600"></span></p>
-      </div>
-      
-      <div class="flex gap-2">
-        <button onclick="exportToPDF()" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-lg text-sm font-medium transition">
-          📄 สรุป PDF
-        </button>
-        <button onclick="handleLogout()" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-2 rounded-lg text-sm font-medium transition">
-          🚪 ออกจากระบบ
-        </button>
-      </div>
-    </header>
+        <div class="clock-hand hour-hand" id="hourHand"></div>
+        <div class="clock-hand minute-hand" id="minuteHand"></div>
+        <div class="clock-hand second-hand" id="secondHand"></div>
 
-    <!-- FORM: บันทึกรายการ -->
-    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-      <h3 class="text-lg font-semibold text-slate-800 mb-4">➕ บันทึกรายการใหม่</h3>
-      <form id="transactionForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">วันที่</label>
-          <input type="date" id="dateInput" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">ประเภท</label>
-          <select id="typeInput" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-            <option value="income">รายรับ (+)</option>
-            <option value="expense" selected>รายจ่าย (-)</option>
-          </select>
-        </div>
-        <div class="lg:col-span-2">
-          <label class="block text-xs font-medium text-slate-600 mb-1">ชื่อรายการ</label>
-          <input type="text" id="titleInput" placeholder="เช่น ค่าอาหาร" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">จำนวนเงิน</label>
-          <input type="number" id="amountInput" placeholder="0.00" min="0.01" step="0.01" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-        </div>
-        <div class="flex items-end">
-          <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg text-sm transition">
-            + บันทึก
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <!-- FILTER BAR -->
-    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
-        <span class="text-sm font-semibold text-slate-700">🔍 เลือกช่วงเวลา:</span>
-        <div class="flex gap-1">
-          <button onclick="setFilterMode('all')" id="btn-all" class="px-3 py-1 text-xs rounded-full bg-blue-600 text-white font-medium">ทั้งหมด</button>
-          <button onclick="setFilterMode('daily')" id="btn-daily" class="px-3 py-1 text-xs rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200">รายวัน</button>
-          <button onclick="setFilterMode('monthly')" id="btn-monthly" class="px-3 py-1 text-xs rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200">รายเดือน</button>
-          <button onclick="setFilterMode('yearly')" id="btn-yearly" class="px-3 py-1 text-xs rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200">รายปี</button>
-        </div>
-      </div>
-
-      <div id="filterControlArea" class="hidden flex items-center space-x-3 pt-1">
-        <input type="date" id="filterDate" onchange="render()" class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm hidden">
-        <input type="month" id="filterMonth" onchange="render()" class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm hidden">
-        <input type="number" id="filterYear" min="2000" max="2100" placeholder="YYYY" onchange="render()" class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm w-28 hidden">
+        <div class="clock-center"></div>
       </div>
     </div>
 
-    <!-- REPORT AREA -->
-    <div id="pdfReportContent" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
-      <div class="border-b pb-4">
-        <h2 class="text-xl font-bold text-slate-800">📊 สรุปรายงานทางการเงิน</h2>
-        <p id="reportPeriodText" class="text-xs text-slate-500 mt-1">ช่วงเวลา: ข้อมูลทั้งหมด</p>
-      </div>
+    <!-- ขวา -->
+    <div class="flex gap-2 flex-1 justify-end">
+      <button onclick="exportToPDF()"
+        class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-lg text-sm font-medium transition">
+        📄 สรุป PDF
+      </button>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="p-4 rounded-lg bg-emerald-50 border border-emerald-200">
-          <p class="text-xs font-medium text-emerald-700">รายรับรวม</p>
-          <h3 id="totalIncome" class="text-2xl font-bold text-emerald-600 mt-1">฿0.00</h3>
-        </div>
-        <div class="p-4 rounded-lg bg-rose-50 border border-rose-200">
-          <p class="text-xs font-medium text-rose-700">รายจ่ายรวม</p>
-          <h3 id="totalExpense" class="text-2xl font-bold text-rose-600 mt-1">฿0.00</h3>
-        </div>
-        <div class="p-4 rounded-lg bg-blue-50 border border-blue-200">
-          <p class="text-xs font-medium text-blue-700">คงเหลือสุทธิ</p>
-          <h3 id="netBalance" class="text-2xl font-bold text-blue-600 mt-1">฿0.00</h3>
-        </div>
-      </div>
-
-      <div>
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="text-base font-semibold text-slate-800">📑 รายการบันทึก</h3>
-          <span id="itemCount" class="text-xs text-slate-500">0 รายการ</span>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm text-slate-600">
-            <thead class="bg-slate-100 text-slate-700 border-b border-slate-200">
-              <tr>
-                <th class="py-2.5 px-3">วันที่</th>
-                <th class="py-2.5 px-3">ประเภท</th>
-                <th class="py-2.5 px-3">รายการ</th>
-                <th class="py-2.5 px-3 text-right">จำนวนเงิน</th>
-                <th class="py-2.5 px-3 text-center print:hidden">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody id="transactionTableBody" class="divide-y divide-slate-100"></tbody>
-          </table>
-        </div>
-      </div>
+      <button onclick="handleLogout()"
+        class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-2 rounded-lg text-sm font-medium transition">
+        🚪 ออกจากระบบ
+      </button>
     </div>
 
   </div>
 
-  <script>
-    // --- 1. INITIALIZE SUPABASE ---
-    const SUPABASE_URL = 'https://jdvnwvehtvhjhlepczjh.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impkdm53dmVodHZoamhsZXBjempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3OTM4MzAsImV4cCI6MjEwMzM2OTgzMH0.7qLpm9XHUopSDIrwHrKDWa75nPkmyZtiFuWhD6Gn10U';
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    let currentUser = null;
-    let transactions = [];
-    let currentFilterMode = 'all';
-
-    // DOM References
-    const authContainer = document.getElementById('authContainer');
-    const appContainer = document.getElementById('appContainer');
-    const authEmail = document.getElementById('authEmail');
-    const authPassword = document.getElementById('authPassword');
-    const authMessage = document.getElementById('authMessage');
-    const userEmailTag = document.getElementById('userEmailTag');
-
-    const transactionForm = document.getElementById('transactionForm');
-    const dateInput = document.getElementById('dateInput');
-    const typeInput = document.getElementById('typeInput');
-    const titleInput = document.getElementById('titleInput');
-    const amountInput = document.getElementById('amountInput');
-    const submitBtn = document.getElementById('submitBtn');
-
-    const filterControlArea = document.getElementById('filterControlArea');
-    const filterDate = document.getElementById('filterDate');
-    const filterMonth = document.getElementById('filterMonth');
-    const filterYear = document.getElementById('filterYear');
-    const reportPeriodText = document.getElementById('reportPeriodText');
-
-    const totalIncomeEl = document.getElementById('totalIncome');
-    const totalExpenseEl = document.getElementById('totalExpense');
-    const netBalanceEl = document.getElementById('netBalance');
-    const transactionTableBody = document.getElementById('transactionTableBody');
-    const itemCountEl = document.getElementById('itemCount');
-
-    const todayStr = new Date().toISOString().split('T')[0];
-    dateInput.value = todayStr;
-    filterDate.value = todayStr;
-    filterMonth.value = todayStr.substring(0, 7);
-    filterYear.value = new Date().getFullYear();
-
-    // --- 2. AUTHENTICATION LOGIC ---
-
-    // ตรวจสอบสถานะ ล็อกอิน/ล็อกเอาต์ แบบ Real-time
-    supabaseClient.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        currentUser = session.user;
-        userEmailTag.textContent = currentUser.email;
-        authContainer.classList.add('hidden');
-        appContainer.classList.remove('hidden');
-        fetchTransactions();
-      } else {
-        currentUser = null;
-        authContainer.classList.remove('hidden');
-        appContainer.classList.add('hidden');
-      }
-    });
-
-    // เข้าสู่ระบบ
-    async function handleLogin() {
-      authMessage.textContent = 'กำลังตรวจสอบข้อมูล...';
-      authMessage.className = 'text-center text-xs font-medium text-slate-500';
-
-      const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email: authEmail.value.trim(),
-        password: authPassword.value
-      });
-
-      if (error) {
-        authMessage.textContent = 'เข้าสู่ระบบไม่สำเร็จ: ' + error.message;
-        authMessage.className = 'text-center text-xs font-medium text-rose-500';
-      } else {
-        authMessage.textContent = '';
-      }
-    }
-
-    // สมัครสมาชิก
-    async function handleSignUp() {
-      authMessage.textContent = 'กำลังลงทะเบียน...';
-      authMessage.className = 'text-center text-xs font-medium text-slate-500';
-
-      const { data, error } = await supabaseClient.auth.signUp({
-        email: authEmail.value.trim(),
-        password: authPassword.value
-      });
-
-      if (error) {
-        authMessage.textContent = 'สมัครสมาชิกไม่สำเร็จ: ' + error.message;
-        authMessage.className = 'text-center text-xs font-medium text-rose-500';
-      } else {
-        authMessage.textContent = 'สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ';
-        authMessage.className = 'text-center text-xs font-medium text-emerald-600';
-      }
-    }
-
-    // ออกจากระบบ
-    async function handleLogout() {
-      await supabaseClient.auth.signOut();
-    }
-
-    // --- 3. DATABASE OPERATIONS ---
-    async function fetchTransactions() {
-      transactionTableBody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400">กำลังโหลดข้อมูล...</td></tr>`;
-
-      const { data, error } = await supabaseClient
-        .from('transactions')
-        .select('*')
-        .order('date', { ascending: false });
-
-      if (error) {
-        alert('โหลดข้อมูลไม่สำเร็จ: ' + error.message);
-        return;
-      }
-
-      transactions = data || [];
-      render();
-    }
-
-    transactionForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      submitBtn.disabled = true;
-
-      const payload = {
-        user_id: currentUser.id,
-        date: dateInput.value,
-        type: typeInput.value,
-        title: titleInput.value.trim(),
-        amount: parseFloat(amountInput.value)
-      };
-
-      const { data, error } = await supabaseClient
-        .from('transactions')
-        .insert([payload])
-        .select();
-
-      submitBtn.disabled = false;
-
-      if (error) {
-        alert('บันทึกข้อมูลไม่สำเร็จ: ' + error.message);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        transactions.unshift(data[0]);
-        render();
-      }
-
-      titleInput.value = '';
-      amountInput.value = '';
-      titleInput.focus();
-    });
-
-    async function deleteTransaction(id) {
-      if (!confirm('ยืนยันการลบรายการนี้?')) return;
-
-      const { error } = await supabaseClient
-        .from('transactions')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        alert('ลบรายการไม่สำเร็จ: ' + error.message);
-        return;
-      }
-
-      transactions = transactions.filter(t => t.id !== id);
-      render();
-    }
-
-    // --- 4. RENDER & EXPORT LOGIC ---
-    function setFilterMode(mode) {
-      currentFilterMode = mode;
-      ['all', 'daily', 'monthly', 'yearly'].forEach(m => {
-        const btn = document.getElementById(`btn-${m}`);
-        btn.className = (m === mode) 
-          ? "px-3 py-1 text-xs rounded-full bg-blue-600 text-white font-medium" 
-          : "px-3 py-1 text-xs rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200";
-      });
-
-      filterControlArea.classList.remove('hidden');
-      filterDate.classList.add('hidden');
-      filterMonth.classList.add('hidden');
-      filterYear.classList.add('hidden');
-
-      if (mode === 'all') filterControlArea.classList.add('hidden');
-      else if (mode === 'daily') filterDate.classList.remove('hidden');
-      else if (mode === 'monthly') filterMonth.classList.remove('hidden');
-      else if (mode === 'yearly') filterYear.classList.remove('hidden');
-
-      render();
-    }
-
-    function formatCurrency(amount) {
-      return '฿' + Number(amount).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-
-    function render() {
-      let filtered = transactions;
-      let periodLabel = "ข้อมูลทั้งหมด";
-
-      if (currentFilterMode === 'daily') {
-        filtered = transactions.filter(t => t.date === filterDate.value);
-        periodLabel = `ประจำวันที่ ${filterDate.value}`;
-      } else if (currentFilterMode === 'monthly') {
-        filtered = transactions.filter(t => t.date.startsWith(filterMonth.value));
-        periodLabel = `ประจำเดือน ${filterMonth.value}`;
-      } else if (currentFilterMode === 'yearly') {
-        filtered = transactions.filter(t => t.date.startsWith(String(filterYear.value)));
-        periodLabel = `ประจำปี ค.ศ. ${filterYear.value}`;
-      }
-
-      reportPeriodText.textContent = `ช่วงเวลา: ${periodLabel}`;
-
-      const totalIncome = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
-      const totalExpense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
-      const netBalance = totalIncome - totalExpense;
-
-      totalIncomeEl.textContent = formatCurrency(totalIncome);
-      totalExpenseEl.textContent = formatCurrency(totalExpense);
-      netBalanceEl.textContent = formatCurrency(netBalance);
-
-      transactionTableBody.innerHTML = '';
-      itemCountEl.textContent = `${filtered.length} รายการ`;
-
-      if (filtered.length === 0) {
-        transactionTableBody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400">ไม่พบรายการในช่วงเวลาที่เลือก</td></tr>`;
-        return;
-      }
-
-      filtered.forEach(t => {
-        const isIncome = t.type === 'income';
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50 border-b border-slate-100";
-
-        tr.innerHTML = `
-          <td class="py-2.5 px-3 font-mono text-xs text-slate-500">${t.date}</td>
-          <td class="py-2.5 px-3">
-            <span class="px-2 py-0.5 text-xs rounded-full font-medium ${isIncome ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
-              ${isIncome ? 'รายรับ' : 'รายจ่าย'}
-            </span>
-          </td>
-          <td class="py-2.5 px-3 font-medium text-slate-800">${t.title}</td>
-          <td class="py-2.5 px-3 text-right font-semibold ${isIncome ? 'text-emerald-600' : 'text-rose-600'}">
-            ${isIncome ? '+' : '-'}${formatCurrency(t.amount)}
-          </td>
-          <td class="py-2.5 px-3 text-center print:hidden">
-            <button onclick="deleteTransaction(${t.id})" class="text-slate-300 hover:text-rose-500 transition px-2 py-1">
-              ✕
-            </button>
-          </td>
-        `;
-        transactionTableBody.appendChild(tr);
-      });
-    }
-
-    function exportToPDF() {
-      const element = document.getElementById('pdfReportContent');
-      const opt = {
-        margin: 10,
-        filename: `รายงานรายรับ-รายจ่าย_${currentFilterMode}_${new Date().toISOString().split('T')[0]}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-      html2pdf().set(opt).from(element).save();
-    }
-  </script>
-</body>
-</html>
+</header>
